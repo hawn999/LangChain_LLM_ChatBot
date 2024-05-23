@@ -11,23 +11,30 @@ from utils.utils import save_chunks_into_vectorstore, get_chat_chain, process_us
 from models.embedding_model import get_openaiEmbedding_model, get_huggingfaceEmbedding_model
 from utils.utils import load_init_PDF_text
 import streamlit as st
+from config.state import global_session_state,change_state
 
-is_first_login=True
+
+
 
 # 定义一个函数来验证用户名和密码
 def authenticate(username, password):
     # 这里你可以根据需要实现你的身份验证逻辑
     return username == "a" and password == "a"
 
-
 def main():
-    global is_first_login
+
     # 初始化
     # session_state是Streamlit提供的用于存储会话状态的功能
     if "conversation" not in st.session_state:
         st.session_state.conversation = None
     if "chat_history" not in st.session_state:
         st.session_state.chat_history = None
+    # Initialization
+    if 'key' not in st.session_state:
+        st.session_state.need_to_embedding = global_session_state
+        print("ini:")
+        print(st.session_state.need_to_embedding)
+        print("\n")
 
     # 配置界面
     st.set_page_config(page_title="基于LangChain+LLM+Streamlit的问答系统",
@@ -64,10 +71,41 @@ def main():
         container4.empty()
         container5.empty()
         container6.empty()
-
         st.header("登陆成功！欢迎来到基于LangChain+LLM+Streamlit的问答系统")
-
-        if is_first_login:
+        with st.sidebar:
+            # 设置子标题
+            st.subheader("自定义知识库")
+            # 上传文档
+            files = st.file_uploader("上传PDF文档，然后点击'提交并处理'，即可对该文档内容进行问答",
+                                     accept_multiple_files=True)
+            if st.button("提交并处理"):
+                # st.session_state.conversation = None
+                # st.session_state.chat_history = None
+                with st.spinner("请等待，处理中..."):
+                    st.session_state.conversation = []
+                    st.session_state.chat_history = []
+                    # 获取PDF文档内容（文本）
+                    texts = extract_text_from_PDF(files)
+                    # 将获取到的文档内容进行切分
+                    content_chunks = split_content_into_chunks(texts)
+                    # 对每个chunk计算embedding，并存入到向量数据库
+                    # 根据model_type和model_name创建embedding model对象
+                    embedding_model = get_openaiEmbedding_model()
+                    # embedding_model = get_huggingfaceEmbedding_model(model_name="hkunlp/instructor-xl")
+                    # embedding_model = get_huggingfaceEmbedding_model(model_name="deepset/roberta-base-squad2")
+                    # 创建向量数据库对象，并将文本embedding后存入到里面
+                    vector_store = save_chunks_into_vectorstore(content_chunks, embedding_model)
+                    # 创建对话chain
+                    st.session_state.conversation = get_chat_chain(vector_store)
+                st.write("PDF处理成功！")
+        #
+        # if container7.session_state.counter==0:
+        #     container7.empty()
+        if st.session_state.need_to_embedding:
+            #构建初始的本地知识库
+            print(st.session_state.need_to_embedding)
+            change_state()
+            print(st.session_state.need_to_embedding)
             with st.spinner("正在处理本地知识库，请稍等..."):
                 # 初始化对话链
                 # 获取PDF文档内容（文本）
@@ -93,29 +131,9 @@ def main():
         if user_input:
             process_user_input(user_input)
 
-        with st.sidebar:
-            # 设置子标题
-            st.subheader("自定义知识库")
-            # 上传文档
-            files = st.file_uploader("上传PDF文档，然后点击'提交并处理'，即可对该文档内容进行问答",
-                                     accept_multiple_files=True)
-            if st.button("提交并处理"):
-                with st.spinner("请等待，处理中..."):
-                    # 获取PDF文档内容（文本）
-                    texts = extract_text_from_PDF(files)
-                    # 将获取到的文档内容进行切分
-                    content_chunks = split_content_into_chunks(texts)
-                    # 对每个chunk计算embedding，并存入到向量数据库
-                    # 根据model_type和model_name创建embedding model对象
-                    embedding_model = get_openaiEmbedding_model()
-                    # embedding_model = get_huggingfaceEmbedding_model(model_name="hkunlp/instructor-xl")
-                    # embedding_model = get_huggingfaceEmbedding_model(model_name="deepset/roberta-base-squad2")
-                    # 创建向量数据库对象，并将文本embedding后存入到里面
-                    vector_store = save_chunks_into_vectorstore(content_chunks, embedding_model)
-                    # 创建对话chain
-                    st.session_state.conversation = get_chat_chain(vector_store)
-                st.write("PDF处理成功！")
+
 
 
 if __name__ == "__main__":
+
     main()

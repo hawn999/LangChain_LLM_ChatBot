@@ -3,6 +3,7 @@ from langchain.text_splitter import CharacterTextSplitter
 from langchain_community.vectorstores import FAISS, Milvus, Pinecone, Chroma
 from langchain.memory import ConversationBufferMemory
 from langchain.chains import ConversationalRetrievalChain
+from langchain.chains.conversational_retrieval.base import ConversationalRetrievalChain
 from models.llm_model import get_openai_model, get_huggingfacehub
 import pinecone
 import streamlit as st
@@ -12,7 +13,7 @@ from PyPDF2 import PdfReader
 
 def load_init_PDF_text():
     text=""
-    file_path = '/Users/hwan/Downloads/LangChain_LLM_ChatBot/pdf/党建300问(1)_20240420211736.pdf'
+    file_path = '/Users/hwan/Downloads/LangChain_LLM_ChatBot/pdf/pdf01.pdf'
     # 手动打开文件，指定编码为 UTF-8
     # file = open(file_path, 'r', encoding='utf-8')
     # 创建一个 PdfFileReader 对象
@@ -32,6 +33,7 @@ def extract_text_from_PDF(files):
         pdf_reader = PdfReader(pdf)
         for page in pdf_reader.pages:
             text += page.extract_text()
+
     return text
 
 def split_content_into_chunks(text):
@@ -45,7 +47,7 @@ def split_content_into_chunks(text):
 
 def save_chunks_into_vectorstore(content_chunks, embedding_model):
     # 参考官网链接：https://python.langchain.com/docs/modules/data_connection/vectorstores/
-    # pip install faiss-gpu (如果没有GPU，那么 pip install faiss-cpu)
+    # pip install faiss-gpu
     vectorstore = FAISS.from_texts(texts=content_chunks,
                                       embedding=embedding_model)
     return vectorstore
